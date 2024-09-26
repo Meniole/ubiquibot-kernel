@@ -1,4 +1,4 @@
-name = "ubiquityos-kernel"
+name = "ubiquity-os-kernel"
 main = "src/worker.ts"
 compatibility_date = "2023-12-06"
 compatibility_flags = [ "nodejs_compat" ]
@@ -14,6 +14,10 @@ compatibility_flags = [ "nodejs_compat" ]
   [[env.production.kv_namespaces]]
 		binding = "PLUGIN_CHAIN_STATE"
 		id = "TO_BE_DEFINED"
+
+# Enables Cloudflare Worker Logs
+[observability]
+enabled = true
 
 # Variable bindings. These are arbitrary, plaintext strings (similar to environment variables)
 # Note: Use secrets to store sensitive data.
