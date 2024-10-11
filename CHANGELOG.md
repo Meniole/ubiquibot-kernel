@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/Meniole/ubiquibot-kernel/compare/v1.0.0...v1.0.1) (2024-10-11)
+
+
+### Bug Fixes
+
+* update husky to version 9.1.6 ([ca08e9f](https://github.com/Meniole/ubiquibot-kernel/commit/ca08e9f8485a9ae8129e96fdefe052c1a9109ac0))
+
 ## 1.0.0 (2024-10-11)
 
 
