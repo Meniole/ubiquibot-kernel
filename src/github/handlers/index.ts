@@ -52,6 +52,8 @@ async function handleEvent(event: EmitterWebhookEvent, eventHandler: InstanceTyp
 
   const config = await getConfig(context);
 
+  console.log(`Configuration: ${JSON.stringify(config)}`);
+
   if (!config) {
     console.log("No config found");
     return;
