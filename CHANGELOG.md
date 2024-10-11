@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/Meniole/ubiquibot-kernel/compare/v1.0.1...v1.0.2) (2024-10-11)
+
+
+### Bug Fixes
+
+* update Husky setup for production and CI ([9a76d37](https://github.com/Meniole/ubiquibot-kernel/commit/9a76d37ec6839f2296cece682192b9cb653b0553))
+
 ## [1.0.1](https://github.com/Meniole/ubiquibot-kernel/compare/v1.0.0...v1.0.1) (2024-10-11)
 
 
