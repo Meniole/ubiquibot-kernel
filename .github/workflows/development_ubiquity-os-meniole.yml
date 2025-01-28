@@ -106,7 +106,7 @@ jobs:
           inlineScript: |
             az account show
             az functionapp config appsettings set \
-              --name ubiquity-os \
+              --name ubiquity-os-meniole \
               --resource-group ubiquity-os_group \
               --settings @local.settings.json
 
