@@ -66,7 +66,6 @@ jobs:
           # Create the base settings object
           settings=$(jq -n '{
             "IsEncrypted": false,
-            "Values": {}
           }')
 
           # Define excluded prefixes
@@ -86,7 +85,7 @@ jobs:
             # Add the secret if it passes the filter
             if [ "$include" = true ]; then
               secret_value=$(echo "$secrets" | jq -r ".[\"$secret_name\"]")
-              settings=$(echo "$settings" | jq --arg name "$secret_name" --arg value "$secret_value" '.Values[$name] = $value')
+              settings=$(echo "$settings" | jq --arg name "$secret_name" --arg value "$secret_value" '.[$name] = $value')
             fi
           done
 
