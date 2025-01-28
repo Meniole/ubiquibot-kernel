@@ -47,6 +47,65 @@ jobs:
           name: node-app
           path: release.zip
 
+  update-environment:
+    runs-on: ubuntu-latest
+    needs: build
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Generate local.settings.json
+        env:
+          GITHUB_SECRETS: ${{ toJson(secrets) }}
+        shell: bash
+        run: |
+          # Parse the JSON secrets
+          secrets=$(echo "$GITHUB_SECRETS" | jq -c '.')
+
+          # Create the base settings object
+          settings=$(jq -n '{
+            "IsEncrypted": false,
+            "Values": {}
+          }')
+
+          # Define excluded prefixes
+          excluded_prefixes=("GITHUB_" "ACTIONS_" "AZUREAPPSERVICE_")
+
+          # Iterate through secrets and add non-excluded ones
+          for secret_name in $(echo "$secrets" | jq -r 'keys[]'); do
+            # Check if the secret should be included
+            include=true
+            for prefix in "${excluded_prefixes[@]}"; do
+              if [[ "$secret_name" == "$prefix"* ]]; then
+                include=false
+                break
+              fi
+            done
+
+            # Add the secret if it passes the filter
+            if [ "$include" = true ]; then
+              secret_value=$(echo "$secrets" | jq -r ".[\"$secret_name\"]")
+              settings=$(echo "$settings" | jq --arg name "$secret_name" --arg value "$secret_value" '.Values[$name] = $value')
+            fi
+          done
+
+          # Output the final settings to local.settings.json
+          echo "$settings" | jq '.' > local.settings.json
+
+      - name: Azure CLI script to upload environment
+        uses: azure/cli@v2
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az account show
+            az functionapp config appsettings set \
+              --name ubiquity-os-meniole \
+              --resource-group ubiquity-os_group \
+              --settings @local.settings.json
+
   deploy:
     runs-on: ubuntu-latest
     needs: build
@@ -70,3 +129,4 @@ jobs:
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_630C40DD8E7B4099951B57298C189639 }}
           sku: 'flexconsumption'
+
