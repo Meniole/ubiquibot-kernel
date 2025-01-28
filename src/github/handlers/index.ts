@@ -15,7 +15,7 @@ function tryCatchWrapper(fn: (event: EmitterWebhookEvent) => unknown) {
     try {
       await fn(event);
     } catch (error) {
-      console.error("Error in event handler", error);
+      console.error(`Error in event handler`, error, JSON.stringify(event));
     }
   };
 }
@@ -28,8 +28,8 @@ export function bindHandlers(eventHandler: GitHubEventHandler) {
 }
 
 export async function shouldSkipPlugin(context: GitHubContext, pluginChain: PluginConfiguration["plugins"][0]) {
-  if (pluginChain.skipBotEvents && "sender" in context.payload && context.payload.sender?.type === "Bot") {
-    console.log("Skipping plugin chain because sender is a bot");
+  if (pluginChain.uses[0].skipBotEvents && "sender" in context.payload && context.payload.sender?.type === "Bot") {
+    console.log(`Skipping plugin ${JSON.stringify(pluginChain.uses[0].plugin)} in the chain because the sender is a bot`);
     return true;
   }
   const manifest = await getManifest(context, pluginChain.uses[0].plugin);
@@ -67,9 +67,11 @@ async function handleEvent(event: EmitterWebhookEvent, eventHandler: InstanceTyp
   const pluginChains = getPluginsForEvent(config.plugins, context.key);
 
   if (pluginChains.length === 0) {
-    console.log(`No handler found for event ${event.name}`);
+    console.log(`No handler found for event ${event.name} (${context.key})`);
     return;
   }
+
+  console.log(`Will call the following chain:\n${pluginChains.map((o) => JSON.stringify(o.uses[0]?.plugin)).join("\n")}`);
 
   for (const pluginChain of pluginChains) {
     if (await shouldSkipPlugin(context, pluginChain)) {
@@ -95,21 +97,28 @@ async function handleEvent(event: EmitterWebhookEvent, eventHandler: InstanceTyp
 
     const ref = isGithubPluginObject ? (plugin.ref ?? (await getDefaultBranch(context, plugin.owner, plugin.repo))) : plugin;
     const token = await eventHandler.getToken(event.payload.installation.id);
-    const inputs = new PluginInput(context.eventHandler, stateId, context.key, event.payload, settings, token, ref);
+    const inputs = new PluginInput(context.eventHandler, stateId, context.key, event.payload, settings, token, ref, null);
 
     state.inputs[0] = inputs;
     await eventHandler.pluginChainState.put(stateId, state);
 
-    if (!isGithubPluginObject) {
-      await dispatchWorker(plugin, await inputs.getWorkerInputs());
-    } else {
-      await dispatchWorkflow(context, {
-        owner: plugin.owner,
-        repository: plugin.repo,
-        workflowId: plugin.workflowId,
-        ref: plugin.ref,
-        inputs: inputs.getWorkflowInputs(),
-      });
+    // We wrap the dispatch so a failing plugin doesn't break the whole execution
+    try {
+      console.log(`Dispatching event for ${JSON.stringify(plugin)}`);
+      if (!isGithubPluginObject) {
+        await dispatchWorker(plugin, await inputs.getInputs());
+      } else {
+        await dispatchWorkflow(context, {
+          owner: plugin.owner,
+          repository: plugin.repo,
+          workflowId: plugin.workflowId,
+          ref: plugin.ref,
+          inputs: await inputs.getInputs(),
+        });
+      }
+      console.log(`Event dispatched for ${JSON.stringify(plugin)}`);
+    } catch (e) {
+      console.error(`An error occurred while processing the plugin chain, will skip plugin ${JSON.stringify(plugin)}`, e);
     }
   }
 }

@@ -7,8 +7,8 @@ async function parseCommandsFromManifest(context: GitHubContext<"issue_comment.c
   const commands: string[] = [];
   const manifest = await getManifest(context, plugin);
   if (manifest?.commands) {
-    for (const [key, value] of Object.entries(manifest.commands)) {
-      commands.push(`| \`/${getContent(key)}\` | ${getContent(value.description)} | \`${getContent(value["ubiquity:example"])}\` |`);
+    for (const [name, command] of Object.entries(manifest.commands)) {
+      commands.push(`| \`/${getContent(name)}\` | ${getContent(command.description)} | \`${getContent(command["ubiquity:example"])}\` |`);
     }
   }
   return commands;
@@ -27,12 +27,16 @@ export async function postHelpCommand(context: GitHubContext<"issue_comment.crea
     const { plugin } = pluginElement.uses[0];
     commands.push(...(await parseCommandsFromManifest(context, plugin)));
   }
-  await context.octokit.rest.issues.createComment({
-    body: comments.concat(commands.sort()).join("\n"),
-    issue_number: context.payload.issue.number,
-    owner: context.payload.repository.owner.login,
-    repo: context.payload.repository.name,
-  });
+  if (!commands.length) {
+    console.warn("No commands found, will not post the help command message.");
+  } else {
+    await context.octokit.rest.issues.createComment({
+      body: comments.concat(commands.sort()).join("\n"),
+      issue_number: context.payload.issue.number,
+      owner: context.payload.repository.owner.login,
+      repo: context.payload.repository.name,
+    });
+  }
 }
 
 /**

@@ -1,7 +1,7 @@
 import { GithubPlugin, isGithubPlugin, PluginConfiguration } from "../types/plugin-configuration";
 import { EmitterWebhookEventName } from "@octokit/webhooks";
 import { GitHubContext } from "../github-context";
-import { Manifest, manifestSchema, manifestValidator } from "../../types/manifest";
+import { Manifest, manifestSchema } from "@ubiquity-os/plugin-sdk/manifest";
 import { Buffer } from "node:buffer";
 import { Value } from "@sinclair/typebox/value";
 
@@ -31,12 +31,13 @@ async function fetchActionManifest(context: GitHubContext<"issue_comment.created
     });
     if ("content" in data) {
       const content = Buffer.from(data.content, "base64").toString();
-      const manifest = decodeManifest(JSON.parse(content));
+      const contentParsed = JSON.parse(content);
+      const manifest = decodeManifest(contentParsed);
       _manifestCache[manifestKey] = manifest;
       return manifest;
     }
   } catch (e) {
-    console.warn(`Could not find a manifest for ${owner}/${repo}: ${e}`);
+    console.error(`Could not find a manifest for Action ${owner}/${repo}: ${e}`);
   }
   return null;
 }
@@ -48,23 +49,24 @@ async function fetchWorkerManifest(url: string): Promise<Manifest | null> {
   const manifestUrl = `${url}/manifest.json`;
   try {
     const result = await fetch(manifestUrl);
-    const manifest = decodeManifest(await result.json());
+    const jsonData = await result.json();
+    const manifest = decodeManifest(jsonData);
     _manifestCache[url] = manifest;
     return manifest;
   } catch (e) {
-    console.warn(`Could not find a manifest for ${manifestUrl}: ${e}`);
+    console.error(`Could not find a manifest for Worker ${manifestUrl}: ${e}`);
   }
   return null;
 }
 
 function decodeManifest(manifest: unknown) {
-  const defaultManifest = Value.Default(manifestSchema, manifest);
-  const errors = manifestValidator.testReturningErrors(manifest as Readonly<unknown>);
-  if (errors !== null) {
+  const errors = [...Value.Errors(manifestSchema, manifest)];
+  if (errors.length) {
     for (const error of errors) {
-      console.error(error);
+      console.dir(error, { depth: null });
     }
     throw new Error("Manifest is invalid.");
   }
+  const defaultManifest = Value.Default(manifestSchema, manifest);
   return defaultManifest as Manifest;
 }

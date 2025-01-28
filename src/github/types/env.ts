@@ -1,10 +1,11 @@
 import { Type as T, type Static } from "@sinclair/typebox";
 
 export const envSchema = T.Object({
-  ENVIRONMENT: T.Union([T.Literal("production"), T.Literal("development")]),
+  ENVIRONMENT: T.Union([T.Literal("production"), T.Literal("development")], { default: "development" }),
   APP_WEBHOOK_SECRET: T.String({ minLength: 1 }),
   APP_ID: T.String({ minLength: 1 }),
   APP_PRIVATE_KEY: T.String({ minLength: 1 }),
+  OPENAI_API_KEY: T.String({ minLength: 1 }),
 });
 
 export type Env = Static<typeof envSchema> & {
@@ -18,6 +19,7 @@ declare global {
       APP_ID: string;
       APP_WEBHOOK_SECRET: string;
       APP_PRIVATE_KEY: string;
+      OPENAI_API_KEY: string;
     }
   }
 }

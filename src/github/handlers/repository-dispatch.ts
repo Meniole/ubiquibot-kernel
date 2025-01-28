@@ -17,7 +17,7 @@ export async function repositoryDispatch(context: GitHubContext<"repository_disp
   try {
     pluginOutput = Value.Decode(pluginOutputSchema, context.payload.client_payload);
   } catch (error) {
-    console.error("Cannot decode plugin output", error);
+    console.error(`Cannot decode plugin output from ${context.payload.repository.full_name}`, error);
     throw error;
   }
   console.log("Plugin output", pluginOutput);
@@ -61,7 +61,7 @@ export async function repositoryDispatch(context: GitHubContext<"repository_disp
   } else {
     ref = nextPlugin.plugin;
   }
-  const inputs = new PluginInput(context.eventHandler, pluginOutput.state_id, state.eventName, state.eventPayload, settings, token, ref);
+  const inputs = new PluginInput(context.eventHandler, pluginOutput.state_id, state.eventName, state.eventPayload, settings, token, ref, null);
 
   state.currentPlugin++;
   state.inputs[state.currentPlugin] = inputs;
@@ -73,10 +73,10 @@ export async function repositoryDispatch(context: GitHubContext<"repository_disp
       repository: nextPlugin.plugin.repo,
       ref: nextPlugin.plugin.ref,
       workflowId: nextPlugin.plugin.workflowId,
-      inputs: inputs.getWorkflowInputs(),
+      inputs: await inputs.getInputs(),
     });
   } else {
-    await dispatchWorker(nextPlugin.plugin, await inputs.getWorkerInputs());
+    await dispatchWorker(nextPlugin.plugin, await inputs.getInputs());
   }
 }
 

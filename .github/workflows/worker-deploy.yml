@@ -17,12 +17,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.10.0
-
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
 
       - name: Run setup script
         run: |
@@ -48,17 +43,21 @@ jobs:
       - uses: cloudflare/wrangler-action@v3
         id: wrangler_deploy
         with:
-          wranglerVersion: "3.79.0"
+          wranglerVersion: "3.86.0"
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           secrets: |
             APP_ID
             APP_PRIVATE_KEY
             APP_WEBHOOK_SECRET
+            ENVIRONMENT
+            OPENAI_API_KEY
         env:
           APP_WEBHOOK_SECRET: ${{ secrets.APP_WEBHOOK_SECRET }}
           APP_ID: ${{ secrets.APP_ID }}
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+          ENVIRONMENT: ${{ secrets.ENVIRONMENT }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Write Deployment URL to Summary
         run: |

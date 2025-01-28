@@ -1,16 +1,21 @@
+import { createAppAuth } from "@octokit/auth-app";
 import { EmitterWebhookEvent, Webhooks } from "@octokit/webhooks";
+import { signPayload } from "@ubiquity-os/plugin-sdk/signature";
+import logger from "console-log-level";
+import OpenAI from "openai";
+
 import { customOctokit } from "./github-client";
 import { GitHubContext, SimplifiedContext } from "./github-context";
-import { createAppAuth } from "@octokit/auth-app";
-import { CloudflareKv } from "./utils/cloudflare-kv";
 import { PluginChainState } from "./types/plugin";
+import { KvStore } from "./utils/kv-store";
 
 export type Options = {
   environment: "production" | "development";
   webhookSecret: string;
   appId: string | number;
   privateKey: string;
-  pluginChainState: CloudflareKv<PluginChainState>;
+  pluginChainState: KvStore<PluginChainState>;
+  openAiClient: OpenAI;
 };
 
 export class GitHubEventHandler {
@@ -18,12 +23,13 @@ export class GitHubEventHandler {
   public on: Webhooks<SimplifiedContext>["on"];
   public onAny: Webhooks<SimplifiedContext>["onAny"];
   public onError: Webhooks<SimplifiedContext>["onError"];
-  public pluginChainState: CloudflareKv<PluginChainState>;
+  public pluginChainState: KvStore<PluginChainState>;
 
   readonly environment: "production" | "development";
   private readonly _webhookSecret: string;
   private readonly _privateKey: string;
   private readonly _appId: number;
+  private readonly _openAiClient: OpenAI;
 
   constructor(options: Options) {
     this.environment = options.environment;
@@ -31,6 +37,7 @@ export class GitHubEventHandler {
     this._appId = Number(options.appId);
     this._webhookSecret = options.webhookSecret;
     this.pluginChainState = options.pluginChainState;
+    this._openAiClient = options.openAiClient;
 
     this.webhooks = new Webhooks<SimplifiedContext>({
       secret: this._webhookSecret,
@@ -49,41 +56,26 @@ export class GitHubEventHandler {
     });
   }
 
-  async importRsaPrivateKey(pem: string) {
-    const pemContents = pem.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").trim();
-    const binaryDer = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
-
-    return await crypto.subtle.importKey(
-      "pkcs8",
-      binaryDer.buffer as ArrayBuffer,
-      {
-        name: "RSASSA-PKCS1-v1_5",
-        hash: "SHA-256",
-      },
-      true,
-      ["sign"]
-    );
-  }
-
   async signPayload(payload: string) {
-    const data = new TextEncoder().encode(payload);
-    const privateKey = await this.importRsaPrivateKey(this._privateKey);
-    const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", privateKey, data);
-    return btoa(String.fromCharCode(...new Uint8Array(signature)));
+    return signPayload(payload, this._privateKey);
   }
 
   transformEvent(event: EmitterWebhookEvent) {
     if ("installation" in event.payload && event.payload.installation?.id !== undefined) {
       const octokit = this.getAuthenticatedOctokit(event.payload.installation.id);
-      return new GitHubContext(this, event, octokit);
+      return new GitHubContext(this, event, octokit, this._openAiClient);
     } else {
       const octokit = this.getUnauthenticatedOctokit();
-      return new GitHubContext(this, event, octokit);
+      return new GitHubContext(this, event, octokit, this._openAiClient);
     }
   }
 
   getAuthenticatedOctokit(installationId: number) {
     return new customOctokit({
+      request: {
+        fetch: fetch.bind(globalThis),
+      },
+      log: logger({ level: "debug" }),
       auth: {
         appId: this._appId,
         privateKey: this._privateKey,
@@ -94,6 +86,10 @@ export class GitHubEventHandler {
 
   getUnauthenticatedOctokit() {
     return new customOctokit({
+      request: {
+        fetch: fetch.bind(globalThis),
+      },
+      log: logger({ level: "debug" }),
       auth: {
         appId: this._appId,
         privateKey: this._privateKey,
