@@ -32,9 +32,10 @@ jobs:
         shell: bash
         run: |
           pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+          bun install --frozen-lockfile
+          bun run build
+          bun rimraf node_modules
+          bun install --frozen-lockfile --production
           popd
 
       - name: Zip artifact for deployment
@@ -61,7 +62,7 @@ jobs:
 
       - name: Unzip artifact for deployment
         run: unzip release.zip
-      
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -76,4 +77,3 @@ jobs:
           app-name: 'ubiquity-os-meniole'
           slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          
