@@ -10,47 +10,41 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: "." # set this to the path to your web app project, defaults to the repository root
-  NODE_VERSION: "20" # set this to the node version to use (supports 8.x, 10.x, 12.x)
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
+  NODE_VERSION: '20.x' # set this to the node version to use (supports 8.x, 10.x, 12.x)
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       contents: read #This is required for actions/checkout
-
+      
     steps:
-      - name: "Checkout GitHub Action"
+      - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
 
       - name: Setup Node ${{ env.NODE_VERSION }} Environment
         uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: "Resolve Project Dependencies Using Npm"
-        shell: bash
+      - name: 'Resolve Project Dependencies Using Npm'
+        shell: pwsh
         run: |
           pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          bun install --frozen-lockfile
-          bun run build
-          bun rimraf node_modules
-          bun install --frozen-lockfile --production
+          npm install
+          npm run build --if-present
+          npm run test --if-present
           popd
-
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: release.zip
+          path: .
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: build
     permissions:
       id-token: write #This is required for requesting the JWT
@@ -61,21 +55,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
-
+      
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_BC834446D8CF4294989B0557B5F8F107 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_AA8A0F9290BE4B8382B5ACA483FD6F94 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_39C06B58C2D24649A7405B65759D3B3C }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_6DDE262862DE436D8ECF77C536539BFC }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_A13D104AA2C74B5A9BD0B3A74D20BF2B }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_393B2C9A76314C0E8904798BC1E9A4AF }}
 
-      - name: "Run Azure Functions Action"
+      - name: 'Run Azure Functions Action'
         uses: Azure/functions-action@v1
         id: fa
         with:
-          app-name: "ubiquity-os-meniole"
-          slot-name: "Production"
+          app-name: 'ubiquity-os-meniole'
+          slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          
